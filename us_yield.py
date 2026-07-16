@@ -8,11 +8,13 @@ CHAT_ID = os.environ["CHAT_ID"]
 def get_yield(symbol):
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
     headers = {"User-Agent": "Mozilla/5.0"}
-    params = {"interval": "1d", "range": "5d"}
+    params = {"interval": "1d", "range": "10d"}
     res = requests.get(url, headers=headers, params=params)
     data = res.json()["chart"]["result"][0]
     closes = data["indicators"]["quote"][0]["close"]
     closes = [x for x in closes if x is not None]
+    if len(closes) < 2:
+        return None, None
     today = closes[-1]
     prev = closes[-2]
     change = today - prev
@@ -23,8 +25,12 @@ def send_telegram(message):
     requests.post(url, json={"chat_id": CHAT_ID, "text": message, "parse_mode": "HTML"})
 
 def main():
-    y10, c10 = get_yield("^TNX")   # 10년물
-    y30, c30 = get_yield("^TYX")   # 30년물
+    y10, c10 = get_yield("^TNX")
+    y30, c30 = get_yield("^TYX")
+
+    if y10 is None or y30 is None:
+        send_telegram("⚠️ 국채 금리 데이터를 가져올 수 없습니다. (휴장일 가능성)")
+        return
 
     arrow10 = "🔺" if c10 > 0 else "🔻" if c10 < 0 else "➡️"
     arrow30 = "🔺" if c30 > 0 else "🔻" if c30 < 0 else "➡️"
